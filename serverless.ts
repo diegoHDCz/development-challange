@@ -1,11 +1,13 @@
-import type { AWS } from '@serverless/typescript';
-
-import hello from '@functions/hello';
+import type { AWS } from '@serverless/typescript'
 
 const serverlessConfiguration: AWS = {
   service: 'medcloud',
   frameworkVersion: '3',
-  plugins: ['serverless-esbuild'],
+  plugins: [
+    'serverless-esbuild',
+    'serverless-dynamodb-local',
+    'serverless-offline',
+  ],
   provider: {
     name: 'aws',
     runtime: 'nodejs14.x',
@@ -19,10 +21,23 @@ const serverlessConfiguration: AWS = {
     },
   },
   // import the function via paths
-  functions: { hello },
+  functions: {
+    registerPatients: {
+      handler: 'src/functions/registerPatients.handler',
+      events: [
+        {
+          http: {
+            path: 'registerPatients',
+            method: 'post',
+            cors: true,
+          },
+        },
+      ],
+    },
+  },
   package: { individually: true },
   custom: {
-    esbuild: {
+    esbuild: {  
       bundle: true,
       minify: false,
       sourcemap: true,
@@ -32,7 +47,41 @@ const serverlessConfiguration: AWS = {
       platform: 'node',
       concurrency: 10,
     },
+    dynamodb: {
+      stages: ['dev', 'local'],
+      start: {
+        port: 8000,
+        inMemory: true,
+        migrate: true,
+      },
+    },
   },
-};
+  resources: {
+    Resources: {
+      dbMedicalAttention: {
+        Type: 'AWS::DynamoDB::Table',
+        Properties: {
+          TableName: 'patients',
+          ProvisionedThroughput: {
+            ReadCapacityUnits: 5,
+            WriteCapacityUnits: 5,
+          },
+          AttributeDefinitions: [
+            {
+              AttributeName: 'id',
+              AttributeType: 'S',
+            },
+          ],
+          KeySchema: [
+            {
+              AttributeName: 'id',
+              KeyType: 'HASH',
+            },
+          ], 
+        },
+      },
+    },
+  },
+}
 
-module.exports = serverlessConfiguration;
+module.exports = serverlessConfiguration
